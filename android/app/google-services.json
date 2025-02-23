@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "289232138982",
+    "project_id": "sensiteeth-7cd78",
+    "storage_bucket": "sensiteeth-7cd78.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289232138982:android:e4a58cfe07654470a0c127",
+        "android_client_info": {
+          "package_name": "com.example.sensiteeth"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-KCg68lKgcOs41OSLS5iinof-e8cKpXc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
