@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final email = session.user.email;
-    print('Fetching Dentist ID for email: $email');
+    print('Fetching Dentist ID for emails: $email');
     final dentistResponse = await Supabase.instance.client
         .from('Dentist')
         .select('id')
