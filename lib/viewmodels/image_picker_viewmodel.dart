@@ -17,7 +17,13 @@ class ImagePickerViewModel extends ChangeNotifier {
 
     if (image != null) {
       _selectedImage = File(image.path);
-      notifyListeners(); // ✅ Update UI after image selection
+      notifyListeners(); // Update UI after image selection
     }
+  }
+
+  // Method to clear the selected image
+  void clearImage() {
+    _selectedImage = null;
+    notifyListeners(); // Update UI after clearing image
   }
 }

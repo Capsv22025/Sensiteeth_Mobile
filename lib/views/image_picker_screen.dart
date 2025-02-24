@@ -58,6 +58,10 @@ class ImagePickerScreen extends StatelessWidget {
 
       print('Uploaded diagnosis: $response');
 
+      // Clear the selected image and analysis result
+      imagePickerVM.clearImage(); // Reset selected image
+      analysisVM.clearResult(); // Reset analysis result and confidence score
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Image and result uploaded successfully'),

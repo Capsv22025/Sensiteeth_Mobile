@@ -46,8 +46,15 @@ class AnalysisViewModel extends ChangeNotifier {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Analysis failed. Please try again.")),
+        const SnackBar(content: Text("Analysis failed. Please try again.")),
       );
     }
+  }
+
+  // Method to clear analysis result and confidence score
+  void clearResult() {
+    _analysisResult = null;
+    _confidenceScore = null;
+    notifyListeners();
   }
 }
