@@ -201,7 +201,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           : AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeInOut,
-                              width: screenWidth * 0.7,
+                              width: screenWidth * 0.9,
                               child: ElevatedButton(
                                 onPressed: () => _signIn(context),
                                 style: ElevatedButton.styleFrom(
