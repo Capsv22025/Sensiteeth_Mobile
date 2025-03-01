@@ -13,6 +13,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -26,10 +27,12 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
       await authViewModel.signIn(
-          _emailController.text.trim(), _passwordController.text);
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text('Error: ${e.toString()}')),
       );
     } finally {
       setState(() => _isLoading = false);
@@ -38,203 +41,208 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       body: Container(
-        width: screenWidth,
-        height: screenHeight,
+        width: size.width,
+        height: size.height,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
-              Colors.teal.withOpacity(0.3), // Enhanced teal gradient
+              Colors.teal.shade100,
               Colors.white,
             ],
           ),
         ),
-        child: Column(
+        child: Stack(
           children: [
-            // Modern Header
-            Container(
-              width: screenWidth,
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 20,
-                bottom: 20,
-                left: 20,
-                right: 20,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.teal, Colors.teal.shade700],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.teal.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Text(
-                "Dentist Login",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            // Main Content
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(height: screenHeight * 0.05), // Top spacing
-                      Icon(
-                        Icons.local_hospital,
-                        size:
-                            screenHeight * 0.08, // Slightly smaller for balance
-                        color: Colors.teal,
-                      ),
-                      SizedBox(height: screenHeight * 0.02),
-                      Text(
-                        "Welcome, Dentist",
-                        style: TextStyle(
-                          fontSize: screenHeight * 0.035,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.teal,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      SizedBox(height: screenHeight * 0.01),
-                      Text(
-                        "Sign in to manage your consultations",
-                        style: TextStyle(
-                          fontSize: screenHeight * 0.02,
-                          color: Colors.grey.shade600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: screenHeight * 0.05),
-                      // Email Field
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.teal.withOpacity(0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _emailController,
-                          decoration: InputDecoration(
-                            labelText: 'Email',
-                            labelStyle: TextStyle(color: Colors.teal.shade700),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: screenWidth * 0.04,
-                              vertical: screenHeight * 0.02,
-                            ),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(color: Colors.black87),
-                        ),
-                      ),
-                      SizedBox(height: screenHeight * 0.02),
-                      // Password Field
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.teal.withOpacity(0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _passwordController,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            labelStyle: TextStyle(color: Colors.teal.shade700),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: screenWidth * 0.04,
-                              vertical: screenHeight * 0.02,
-                            ),
-                          ),
-                          obscureText: true,
-                          style: const TextStyle(color: Colors.black87),
-                        ),
-                      ),
-                      SizedBox(height: screenHeight * 0.03),
-                      // Sign In Button
-                      _isLoading
-                          ? const CircularProgressIndicator(
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.teal),
-                            )
-                          : AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeInOut,
-                              width: screenWidth * 0.9,
-                              child: ElevatedButton(
-                                onPressed: () => _signIn(context),
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: Colors.teal,
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: screenHeight * 0.015,
-                                    horizontal: screenWidth * 0.04,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 8,
-                                  shadowColor: Colors.teal.withOpacity(0.5),
-                                ),
-                                child: Text(
-                                  'Sign In',
-                                  style: TextStyle(
-                                    fontSize: screenHeight * 0.025,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                      SizedBox(height: screenHeight * 0.05), // Bottom spacing
-                    ],
-                  ),
+            Positioned(
+              top: -size.height * 0.15,
+              left: -size.width * 0.15,
+              child: Container(
+                width: size.width * 0.6,
+                height: size.width * 0.6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.teal.withOpacity(0.1),
                 ),
               ),
             ),
+            Positioned(
+              bottom: -size.height * 0.15,
+              right: -size.width * 0.15,
+              child: Container(
+                width: size.width * 0.6,
+                height: size.width * 0.6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.teal.withOpacity(0.1),
+                ),
+              ),
+            ),
+            _buildContent(size, context),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildContent(Size size, BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+          child: Card(
+            elevation: 12,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(height: size.height * 0.02),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.teal.withOpacity(0.1),
+                    ),
+                    child: Icon(Icons.local_hospital,
+                        size: 60, color: Colors.teal),
+                  ),
+                  SizedBox(height: size.height * 0.02),
+                  const Text(
+                    'Welcome, Dentist',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal,
+                      shadows: [
+                        Shadow(
+                          color: Colors.tealAccent,
+                          offset: Offset(0, 1),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: size.height * 0.01),
+                  Text(
+                    'Sign in to manage your consultations',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: size.height * 0.04),
+                  _buildTextField(
+                      _emailController, 'Email', TextInputType.emailAddress),
+                  SizedBox(height: size.height * 0.02),
+                  _buildTextField(_passwordController, 'Password',
+                      TextInputType.text, true),
+                  SizedBox(height: size.height * 0.03),
+                  _buildSignInButton(size, context),
+                  SizedBox(height: size.height * 0.02),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    TextInputType keyboardType, [
+    bool isPassword = false,
+  ]) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.teal.shade800),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          prefixIcon: Icon(
+            label == 'Email' ? Icons.email : Icons.lock,
+            color: Colors.teal.shade700,
+          ),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.teal.shade700,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                )
+              : null,
+        ),
+        keyboardType: keyboardType,
+        obscureText: isPassword ? _obscurePassword : false,
+        style: const TextStyle(color: Colors.black87),
+        // Removed textAlign: TextAlign.center to use default left alignment
+      ),
+    );
+  }
+
+  Widget _buildSignInButton(Size size, BuildContext context) {
+    return _isLoading
+        ? const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.teal),
+          )
+        : AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: size.width * 0.9,
+            child: ElevatedButton(
+              onPressed: () => _signIn(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade700,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 10,
+                shadowColor: Colors.tealAccent.withOpacity(0.5),
+              ),
+              child: const Text(
+                'Sign In',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          );
   }
 }
