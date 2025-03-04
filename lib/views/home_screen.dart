@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final confirmed = await ConfirmationDialog.show(
       context,
       title: 'Confirm Logout',
-      message: 'Are you sure you want to log out?',
+      message: 'Are you sure you want to logout?',
     );
 
     if (!confirmed || !mounted)
