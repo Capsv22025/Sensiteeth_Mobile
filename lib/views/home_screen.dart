@@ -16,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Map<String, dynamic>>> _consultationsFuture;
   String? _selectedConsultationId;
+  String? _selectedConsultationStatus;
 
   @override
   void initState() {
@@ -42,12 +43,17 @@ class _HomeScreenState extends State<HomeScreen> {
         .from('Consultation')
         .select('id, AppointmentDate, Status, Patient(FirstName, LastName)')
         .eq('DentistId', dentistId)
-        .eq('Status', 'approved');
+        .inFilter('Status',
+            ['approved', 'follow-up']) // Filter for approved and follow-up
+        .order('AppointmentDate', ascending: true);
     return consultationResponse as List<Map<String, dynamic>>;
   }
 
   Future<void> _onRefresh() async {
     setState(() {
+      // Reset the selected consultation ID to avoid mismatch after refresh
+      _selectedConsultationId = null;
+      _selectedConsultationStatus = null;
       _consultationsFuture = _fetchDentistAndConsultations();
     });
     await _consultationsFuture;
@@ -105,8 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
         // Navigate to sign-in screen and clear the stack
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/signin', // Replace with your actual sign-in route name
-          (route) => false, // Removes all previous routes
+          '/signin',
+          (route) => false,
         );
       }
     } catch (e) {
@@ -120,45 +126,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
-
-  // Alternative version using LoadingDialog class (commented out)
-  /*
-  Future<void> _signOut(BuildContext context) async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-
-    // Show confirmation dialog
-    final confirmed = await ConfirmationDialog.show(
-      context,
-      title: 'Confirm Logout',
-      message: 'Are you sure you want to log out?',
-    );
-
-    if (!confirmed || !mounted) return; // Exit if user cancels or widget is disposed
-
-    // Show loading dialog
-    LoadingDialog.show(context);
-
-    try {
-      await authViewModel.signOut();
-      // Ensure dialog is hidden before navigation
-      if (mounted) {
-        LoadingDialog.hide(context);
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/signin', // Replace with your actual sign-in route name
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        LoadingDialog.hide(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error logging out: $e')),
-        );
-      }
-    }
-  }
-  */
 
   @override
   Widget build(BuildContext context) {
@@ -267,6 +234,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 builder: (context) => ImagePickerScreen(
                                   fromCamera: false,
                                   consultationId: _selectedConsultationId!,
+                                  consultationStatus:
+                                      _selectedConsultationStatus!,
                                 ),
                               ),
                             ),
@@ -284,6 +253,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 builder: (context) => ImagePickerScreen(
                                   fromCamera: true,
                                   consultationId: _selectedConsultationId!,
+                                  consultationStatus:
+                                      _selectedConsultationStatus!,
                                 ),
                               ),
                             ),
@@ -331,9 +302,24 @@ class _HomeScreenState extends State<HomeScreen> {
           if (consultations.isEmpty) {
             return const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No approved consultations',
+              child: Text('No approved or follow-up consultations',
                   style: TextStyle(color: Colors.grey)),
             );
+          }
+
+          // Validate _selectedConsultationId
+          if (_selectedConsultationId != null &&
+              !consultations.any((consultation) =>
+                  consultation['id'].toString() == _selectedConsultationId)) {
+            // Reset if the selected ID is not in the new list
+            _selectedConsultationId = null;
+            _selectedConsultationStatus = null;
+          }
+
+          // If no selection, select the first consultation by default
+          if (_selectedConsultationId == null && consultations.isNotEmpty) {
+            _selectedConsultationId = consultations[0]['id'].toString();
+            _selectedConsultationStatus = consultations[0]['Status'];
           }
 
           return DropdownButtonFormField<String>(
@@ -354,12 +340,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 value: consultation['id'].toString(),
                 child: Text(
                   '${consultation['Patient']['FirstName']} ${consultation['Patient']['LastName']} - '
-                  '${DateTime.parse(consultation['AppointmentDate']).toLocal().toString().split(' ')[0]}',
+                  '${DateTime.parse(consultation['AppointmentDate']).toLocal().toString().split(' ')[0]} - '
+                  '${consultation['Status']}',
                 ),
               );
             }).toList(),
-            onChanged: (value) =>
-                setState(() => _selectedConsultationId = value),
+            onChanged: (value) {
+              setState(() {
+                _selectedConsultationId = value;
+                // Find the selected consultation's status
+                final selectedConsultation = consultations.firstWhere(
+                  (consultation) => consultation['id'].toString() == value,
+                );
+                _selectedConsultationStatus = selectedConsultation['Status'];
+              });
+            },
           );
         },
       ),
@@ -446,12 +441,11 @@ class ConfirmationDialog {
   }
 }
 
-// LoadingDialog class (inlined here, can be moved back to separate file if preferred)
 class LoadingDialog {
   static void show(BuildContext context) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevents dismissal by tapping outside
+      barrierDismissible: false,
       builder: (context) => Center(
         child: Container(
           padding: const EdgeInsets.all(24),

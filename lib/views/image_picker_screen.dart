@@ -7,11 +7,13 @@ import '../viewmodels/analysis_viewmodel.dart';
 class ImagePickerScreen extends StatelessWidget {
   final bool fromCamera;
   final String consultationId;
+  final String consultationStatus;
 
   const ImagePickerScreen({
     super.key,
     required this.fromCamera,
     required this.consultationId,
+    required this.consultationStatus,
   });
 
   Future<void> _uploadImageAndResult(BuildContext context) async {
@@ -20,9 +22,13 @@ class ImagePickerScreen extends StatelessWidget {
     final analysisVM = Provider.of<AnalysisViewModel>(context, listen: false);
 
     if (imagePickerVM.selectedImage == null ||
-        analysisVM.analysisResult == null) {
+        analysisVM.analysisResult == null ||
+        imagePickerVM.affectedTooth == null ||
+        imagePickerVM.affectedTooth!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please analyze an image first')),
+        const SnackBar(
+            content:
+                Text('Please analyze an image and specify the affected tooth')),
       );
       return;
     }
@@ -34,7 +40,7 @@ class ImagePickerScreen extends StatelessWidget {
       message: 'Are you sure you want to upload this analysis result?',
     );
 
-    if (!confirmed) return; // Exit if user cancels
+    if (!confirmed) return;
 
     // Show loading dialog
     LoadingDialog.show(context);
@@ -61,18 +67,53 @@ class ImagePickerScreen extends StatelessWidget {
         'Accuracy': analysisVM.confidenceScore ?? 0.0,
         'Confidence': analysisVM.confidenceScore ?? 0.0,
         'ImageUrl': imageUrl,
+        'AffectedTooth': imagePickerVM.affectedTooth, // Use the new column name
       };
 
-      final response = await Supabase.instance.client
-          .from('Diagnosis')
-          .insert(diagnosisData);
+      if (consultationStatus.toLowerCase() == 'follow-up') {
+        final diagnosisResponse = await Supabase.instance.client
+            .from('Diagnosis')
+            .insert(diagnosisData);
 
-      print('Uploaded diagnosis: $response');
+        print('Created new diagnosis for follow-up: $diagnosisResponse');
+      } else {
+        final existingDiagnosis = await Supabase.instance.client
+            .from('Diagnosis')
+            .select()
+            .eq('ConsultationId', consultationId)
+            .maybeSingle();
+
+        if (existingDiagnosis != null) {
+          final diagnosisResponse =
+              await Supabase.instance.client.from('Diagnosis').update({
+            'InitialDiagnosis': analysisVM.analysisResult,
+            'Accuracy': analysisVM.confidenceScore ?? 0.0,
+            'Confidence': analysisVM.confidenceScore ?? 0.0,
+            'ImageUrl': imageUrl,
+            'AffectedTooth':
+                imagePickerVM.affectedTooth, // Update the new column
+          }).eq('id', existingDiagnosis['id']);
+
+          print('Updated existing diagnosis: $diagnosisResponse');
+        } else {
+          final diagnosisResponse = await Supabase.instance.client
+              .from('Diagnosis')
+              .insert(diagnosisData);
+
+          print('Created new diagnosis: $diagnosisResponse');
+        }
+
+        final consultationResponse = await Supabase.instance.client
+            .from('Consultation')
+            .update({'Status': 'partially complete'}).eq('id', consultationId);
+
+        print(
+            'Updated Consultation status to partially complete: $consultationResponse');
+      }
 
       imagePickerVM.clearImage();
       analysisVM.clearResult();
 
-      // Hide loading dialog before showing success message
       LoadingDialog.hide(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,11 +125,10 @@ class ImagePickerScreen extends StatelessWidget {
       );
 
       await Future.delayed(const Duration(seconds: 2));
-      Navigator.pop(context); // Close the modal
-      Navigator.pop(context); // Return to previous screen
+      Navigator.pop(context);
+      Navigator.pop(context);
     } catch (e) {
       print('Error uploading image and result: $e');
-      // Hide loading dialog before showing error message
       LoadingDialog.hide(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error uploading: $e')),
@@ -263,7 +303,33 @@ class ImagePickerScreen extends StatelessWidget {
                               size: 64, color: Colors.grey.shade600),
                         ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                if (imagePickerVM.selectedImage != null) ...[
+                  SizedBox(
+                    width: size.width * 0.9,
+                    child: TextField(
+                      decoration: InputDecoration(
+                        labelText:
+                            'Affected Tooth (e.g., Tooth 32, Upper Left Molar)',
+                        labelStyle: TextStyle(color: Colors.teal.shade800),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.teal.shade800),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: Colors.teal.shade800, width: 2),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        imagePickerVM.setAffectedTooth(value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                const SizedBox(height: 8),
                 _buildButton(
                   size: size,
                   icon: fromCamera ? Icons.camera_alt : Icons.photo_library,
@@ -276,7 +342,9 @@ class ImagePickerScreen extends StatelessWidget {
                   size: size,
                   icon: Icons.analytics,
                   label: 'Analyze Image',
-                  onPressed: imagePickerVM.selectedImage == null
+                  onPressed: imagePickerVM.selectedImage == null ||
+                          imagePickerVM.affectedTooth == null ||
+                          imagePickerVM.affectedTooth!.isEmpty
                       ? null
                       : () async {
                           await analysisVM.analyzeImage(
@@ -326,7 +394,6 @@ class ImagePickerScreen extends StatelessWidget {
   }
 }
 
-// Reusable Dialogs
 class LoadingDialog {
   static void show(BuildContext context) {
     showDialog(
@@ -384,14 +451,12 @@ class ConfirmationDialog {
             ),
             actions: [
               TextButton(
-                onPressed: () =>
-                    Navigator.pop(context, false), // Cancel returns false
+                onPressed: () => Navigator.pop(context, false),
                 child:
                     const Text('Cancel', style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton(
-                onPressed: () =>
-                    Navigator.pop(context, true), // Confirm returns true
+                onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal.shade800,
                   shape: RoundedRectangleBorder(
@@ -403,6 +468,6 @@ class ConfirmationDialog {
             ],
           ),
         ) ??
-        false; // Default to false if dismissed without selection
+        false;
   }
 }

@@ -3,27 +3,34 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ImagePickerViewModel extends ChangeNotifier {
-  final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
-  String? _imageUrl;
+  String? _affectedTooth; // Renamed from _toothAffected
 
   File? get selectedImage => _selectedImage;
-  String? get imageUrl => _imageUrl;
+  String? get affectedTooth => _affectedTooth; // Renamed getter
 
   Future<void> pickImage({required bool fromCamera}) async {
-    final XFile? image = await _picker.pickImage(
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
       source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+      imageQuality: 80,
     );
 
-    if (image != null) {
-      _selectedImage = File(image.path);
-      notifyListeners(); // Update UI after image selection
+    if (pickedFile != null) {
+      _selectedImage = File(pickedFile.path);
+      notifyListeners();
     }
   }
 
-  // Method to clear the selected image
+  void setAffectedTooth(String tooth) {
+    // Renamed method
+    _affectedTooth = tooth;
+    notifyListeners();
+  }
+
   void clearImage() {
     _selectedImage = null;
-    notifyListeners(); // Update UI after clearing image
+    _affectedTooth = null; // Clear the affected tooth field
+    notifyListeners();
   }
 }
