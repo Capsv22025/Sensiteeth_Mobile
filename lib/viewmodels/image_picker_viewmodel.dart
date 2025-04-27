@@ -4,10 +4,15 @@ import 'package:image_picker/image_picker.dart';
 
 class ImagePickerViewModel extends ChangeNotifier {
   File? _selectedImage;
-  String? _affectedTooth; // Renamed from _toothAffected
+  String? _jawPosition; // "Upper" or "Lower"
+  String? _toothType; // e.g., "Central Incisor"
 
   File? get selectedImage => _selectedImage;
-  String? get affectedTooth => _affectedTooth; // Renamed getter
+  String? get affectedTooth => _jawPosition != null && _toothType != null
+      ? '$_jawPosition $_toothType'
+      : null;
+  String? get jawPosition => _jawPosition;
+  String? get toothType => _toothType;
 
   Future<void> pickImage({required bool fromCamera}) async {
     final picker = ImagePicker();
@@ -22,15 +27,20 @@ class ImagePickerViewModel extends ChangeNotifier {
     }
   }
 
-  void setAffectedTooth(String tooth) {
-    // Renamed method
-    _affectedTooth = tooth;
+  void setJawPosition(String? position) {
+    _jawPosition = position;
+    notifyListeners();
+  }
+
+  void setToothType(String? tooth) {
+    _toothType = tooth;
     notifyListeners();
   }
 
   void clearImage() {
     _selectedImage = null;
-    _affectedTooth = null; // Clear the affected tooth field
+    _jawPosition = null;
+    _toothType = null;
     notifyListeners();
   }
 }

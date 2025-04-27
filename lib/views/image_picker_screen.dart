@@ -23,12 +23,12 @@ class ImagePickerScreen extends StatelessWidget {
 
     if (imagePickerVM.selectedImage == null ||
         analysisVM.analysisResult == null ||
-        imagePickerVM.affectedTooth == null ||
-        imagePickerVM.affectedTooth!.isEmpty) {
+        imagePickerVM.jawPosition == null ||
+        imagePickerVM.toothType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text('Please analyze an image and specify the affected tooth')),
+            content: Text(
+                'Please analyze an image and specify the jaw position and tooth type')),
       );
       return;
     }
@@ -67,7 +67,8 @@ class ImagePickerScreen extends StatelessWidget {
         'Accuracy': analysisVM.confidenceScore ?? 0.0,
         'Confidence': analysisVM.confidenceScore ?? 0.0,
         'ImageUrl': imageUrl,
-        'AffectedTooth': imagePickerVM.affectedTooth, // Use the new column name
+        'JawPosition': imagePickerVM.jawPosition, // New column
+        'ToothType': imagePickerVM.toothType, // New column
       };
 
       if (consultationStatus.toLowerCase() == 'follow-up') {
@@ -90,8 +91,8 @@ class ImagePickerScreen extends StatelessWidget {
             'Accuracy': analysisVM.confidenceScore ?? 0.0,
             'Confidence': analysisVM.confidenceScore ?? 0.0,
             'ImageUrl': imageUrl,
-            'AffectedTooth':
-                imagePickerVM.affectedTooth, // Update the new column
+            'JawPosition': imagePickerVM.jawPosition, // Update new column
+            'ToothType': imagePickerVM.toothType, // Update new column
           }).eq('id', existingDiagnosis['id']);
 
           print('Updated existing diagnosis: $diagnosisResponse');
@@ -307,10 +308,14 @@ class ImagePickerScreen extends StatelessWidget {
                 if (imagePickerVM.selectedImage != null) ...[
                   SizedBox(
                     width: size.width * 0.9,
-                    child: TextField(
+                    child: DropdownButtonFormField<String>(
+                      value: imagePickerVM.jawPosition,
+                      hint: Text(
+                        'Select Jaw Position',
+                        style: TextStyle(color: Colors.teal.shade800),
+                      ),
                       decoration: InputDecoration(
-                        labelText:
-                            'Affected Tooth (e.g., Tooth 32, Upper Left Molar)',
+                        labelText: 'Jaw Position',
                         labelStyle: TextStyle(color: Colors.teal.shade800),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -322,8 +327,56 @@ class ImagePickerScreen extends StatelessWidget {
                               BorderSide(color: Colors.teal.shade800, width: 2),
                         ),
                       ),
+                      items: ['Upper', 'Lower'].map((position) {
+                        return DropdownMenuItem<String>(
+                          value: position,
+                          child: Text(position),
+                        );
+                      }).toList(),
                       onChanged: (value) {
-                        imagePickerVM.setAffectedTooth(value);
+                        imagePickerVM.setJawPosition(value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: size.width * 0.9,
+                    child: DropdownButtonFormField<String>(
+                      value: imagePickerVM.toothType,
+                      hint: Text(
+                        'Select Tooth Type',
+                        style: TextStyle(color: Colors.teal.shade800),
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Tooth Type',
+                        labelStyle: TextStyle(color: Colors.teal.shade800),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.teal.shade800),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: Colors.teal.shade800, width: 2),
+                        ),
+                      ),
+                      items: [
+                        'Central Incisor',
+                        'Lateral Incisor',
+                        'Canine/Cuspid',
+                        'First Premolar',
+                        'Second Premolar',
+                        'First Molar',
+                        'Second Molar',
+                        'Wisdom Tooth/Third Molar',
+                      ].map((tooth) {
+                        return DropdownMenuItem<String>(
+                          value: tooth,
+                          child: Text(tooth),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        imagePickerVM.setToothType(value);
                       },
                     ),
                   ),
@@ -343,8 +396,8 @@ class ImagePickerScreen extends StatelessWidget {
                   icon: Icons.analytics,
                   label: 'Analyze Image',
                   onPressed: imagePickerVM.selectedImage == null ||
-                          imagePickerVM.affectedTooth == null ||
-                          imagePickerVM.affectedTooth!.isEmpty
+                          imagePickerVM.jawPosition == null ||
+                          imagePickerVM.toothType == null
                       ? null
                       : () async {
                           await analysisVM.analyzeImage(

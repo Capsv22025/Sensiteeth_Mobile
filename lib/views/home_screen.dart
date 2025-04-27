@@ -15,13 +15,28 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Map<String, dynamic>>> _consultationsFuture;
+  List<Map<String, dynamic>> _allConsultations = [];
+  List<Map<String, dynamic>> _filteredConsultations = [];
   String? _selectedConsultationId;
   String? _selectedConsultationStatus;
+  String _nameFilter = '';
+  String _statusFilter = 'Approved'; // Default to "Approved" instead of "All"
 
   @override
   void initState() {
     super.initState();
-    _consultationsFuture = _fetchDentistAndConsultations();
+    _consultationsFuture =
+        _fetchDentistAndConsultations().then((consultations) {
+      // Pre-filter consultations to only include "Approved" and "Follow-Up"
+      _allConsultations = consultations.where((consultation) {
+        final status = consultation['Status'].toLowerCase();
+        return status == 'approved' || status == 'follow-up';
+      }).toList();
+      _filteredConsultations = _allConsultations;
+      // Apply initial filters after data is fetched, outside of build
+      _applyFilters();
+      return consultations;
+    });
   }
 
   Future<List<Map<String, dynamic>>> _fetchDentistAndConsultations() async {
@@ -43,18 +58,57 @@ class _HomeScreenState extends State<HomeScreen> {
         .from('Consultation')
         .select('id, AppointmentDate, Status, Patient(FirstName, LastName)')
         .eq('DentistId', dentistId)
-        .inFilter('Status',
-            ['approved', 'follow-up']) // Filter for approved and follow-up
         .order('AppointmentDate', ascending: true);
     return consultationResponse as List<Map<String, dynamic>>;
   }
 
+  void _applyFilters() {
+    setState(() {
+      _filteredConsultations = _allConsultations.where((consultation) {
+        final fullName =
+            '${consultation['Patient']['FirstName']} ${consultation['Patient']['LastName']}'
+                .toLowerCase();
+        final matchesName =
+            _nameFilter.isEmpty || fullName.contains(_nameFilter.toLowerCase());
+
+        final matchesStatus =
+            consultation['Status'].toLowerCase() == _statusFilter.toLowerCase();
+
+        return matchesName && matchesStatus;
+      }).toList();
+
+      if (_selectedConsultationId != null &&
+          !_filteredConsultations.any((consultation) =>
+              consultation['id'].toString() == _selectedConsultationId)) {
+        _selectedConsultationId = null;
+        _selectedConsultationStatus = null;
+      }
+
+      if (_selectedConsultationId == null &&
+          _filteredConsultations.isNotEmpty) {
+        _selectedConsultationId = _filteredConsultations[0]['id'].toString();
+        _selectedConsultationStatus = _filteredConsultations[0]['Status'];
+      }
+    });
+  }
+
   Future<void> _onRefresh() async {
     setState(() {
-      // Reset the selected consultation ID to avoid mismatch after refresh
       _selectedConsultationId = null;
       _selectedConsultationStatus = null;
-      _consultationsFuture = _fetchDentistAndConsultations();
+      _nameFilter = '';
+      _statusFilter = 'Approved'; // Reset to "Approved" on refresh
+      _consultationsFuture =
+          _fetchDentistAndConsultations().then((consultations) {
+        // Pre-filter consultations to only include "Approved" and "Follow-Up"
+        _allConsultations = consultations.where((consultation) {
+          final status = consultation['Status'].toLowerCase();
+          return status == 'approved' || status == 'follow-up';
+        }).toList();
+        _filteredConsultations = _allConsultations;
+        _applyFilters();
+        return consultations;
+      });
     });
     await _consultationsFuture;
   }
@@ -62,23 +116,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _signOut(BuildContext context) async {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
 
-    // Show confirmation dialog
     final confirmed = await ConfirmationDialog.show(
       context,
       title: 'Confirm Logout',
       message: 'Are you sure you want to logout?',
     );
 
-    if (!confirmed || !mounted)
-      return; // Exit if user cancels or widget is disposed
+    if (!confirmed || !mounted) return;
 
-    // Show loading dialog and capture its Navigator context
     BuildContext? dialogContext;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        dialogContext = ctx; // Capture the dialog's context
+        dialogContext = ctx;
         return Center(
           child: Container(
             padding: const EdgeInsets.all(24),
@@ -103,12 +154,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       await authViewModel.signOut();
-      // Dismiss the loading dialog using its specific context
       if (dialogContext != null && Navigator.canPop(dialogContext!)) {
         Navigator.pop(dialogContext!);
       }
       if (mounted) {
-        // Navigate to sign-in screen and clear the stack
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/signin',
@@ -192,78 +241,155 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.white,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: size.height - (MediaQuery.of(context).padding.top + 48),
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 16),
-                  Icon(Icons.local_hospital,
-                      size: 64, color: Colors.teal.shade800),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Analyze Your Dental Health',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Select a consultation to proceed',
-                    style: TextStyle(fontSize: 16, color: Colors.grey.shade800),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  _buildDropdown(size),
-                  const SizedBox(height: 24),
-                  _buildButton(
-                    size: size,
-                    icon: Icons.photo_library,
-                    label: 'Upload from Gallery',
-                    onPressed: _selectedConsultationId == null
-                        ? null
-                        : () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ImagePickerScreen(
-                                  fromCamera: false,
-                                  consultationId: _selectedConsultationId!,
-                                  consultationStatus:
-                                      _selectedConsultationStatus!,
-                                ),
-                              ),
-                            ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildButton(
-                    size: size,
-                    icon: Icons.camera_alt,
-                    label: 'Capture with Camera',
-                    onPressed: _selectedConsultationId == null
-                        ? null
-                        : () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ImagePickerScreen(
-                                  fromCamera: true,
-                                  consultationId: _selectedConsultationId!,
-                                  consultationStatus:
-                                      _selectedConsultationStatus!,
-                                ),
-                              ),
-                            ),
-                  ),
-                ],
+        child: Padding(
+          padding:
+              EdgeInsets.symmetric(horizontal: size.width * 0.05, vertical: 16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.local_hospital, size: 64, color: Colors.teal.shade800),
+              const SizedBox(height: 16),
+              const Text(
+                'Analyze Your Dental Health',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Text(
+                'Select a consultation to proceed',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade800),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              _buildNameFilter(size),
+              const SizedBox(height: 16),
+              _buildStatusFilter(size),
+              const SizedBox(height: 16),
+              _buildDropdown(size),
+              const SizedBox(height: 24),
+              _buildButton(
+                size: size,
+                icon: Icons.photo_library,
+                label: 'Upload from Gallery',
+                onPressed: _selectedConsultationId == null
+                    ? null
+                    : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ImagePickerScreen(
+                              fromCamera: false,
+                              consultationId: _selectedConsultationId!,
+                              consultationStatus: _selectedConsultationStatus!,
+                            ),
+                          ),
+                        ),
+              ),
+              const SizedBox(height: 16),
+              _buildButton(
+                size: size,
+                icon: Icons.camera_alt,
+                label: 'Capture with Camera',
+                onPressed: _selectedConsultationId == null
+                    ? null
+                    : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ImagePickerScreen(
+                              fromCamera: true,
+                              consultationId: _selectedConsultationId!,
+                              consultationStatus: _selectedConsultationStatus!,
+                            ),
+                          ),
+                        ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNameFilter(Size size) {
+    return Container(
+      width: size.width * 0.9,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.shade900.withOpacity(0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: TextField(
+        decoration: InputDecoration(
+          hintText: 'Search by patient name',
+          hintStyle: TextStyle(color: Colors.teal.shade700),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        style: const TextStyle(color: Colors.black87, fontSize: 16),
+        onChanged: (value) {
+          setState(() {
+            _nameFilter = value;
+            _applyFilters();
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter(Size size) {
+    return Container(
+      width: size.width * 0.9,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.shade900.withOpacity(0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<String>(
+        value: _statusFilter,
+        hint: Text('Filter by Status',
+            style: TextStyle(color: Colors.teal.shade700)),
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        style: const TextStyle(color: Colors.black87, fontSize: 16),
+        items: ['Approved', 'Follow-Up'].map((status) {
+          // Removed "All"
+          return DropdownMenuItem<String>(
+            value: status,
+            child: Text(status),
+          );
+        }).toList(),
+        onChanged: (value) {
+          setState(() {
+            _statusFilter =
+                value ?? 'Approved'; // Default to "Approved" if null
+            _applyFilters();
+          });
+        },
       ),
     );
   }
@@ -298,28 +424,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(color: Colors.grey)),
             );
           }
-          final consultations = snapshot.data ?? [];
-          if (consultations.isEmpty) {
+
+          if (_filteredConsultations.isEmpty) {
             return const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No approved or follow-up consultations',
+              child: Text('No consultations match the selected criteria',
                   style: TextStyle(color: Colors.grey)),
             );
-          }
-
-          // Validate _selectedConsultationId
-          if (_selectedConsultationId != null &&
-              !consultations.any((consultation) =>
-                  consultation['id'].toString() == _selectedConsultationId)) {
-            // Reset if the selected ID is not in the new list
-            _selectedConsultationId = null;
-            _selectedConsultationStatus = null;
-          }
-
-          // If no selection, select the first consultation by default
-          if (_selectedConsultationId == null && consultations.isNotEmpty) {
-            _selectedConsultationId = consultations[0]['id'].toString();
-            _selectedConsultationStatus = consultations[0]['Status'];
           }
 
           return DropdownButtonFormField<String>(
@@ -335,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
             style: const TextStyle(color: Colors.black87, fontSize: 16),
-            items: consultations.map((consultation) {
+            items: _filteredConsultations.map((consultation) {
               return DropdownMenuItem<String>(
                 value: consultation['id'].toString(),
                 child: Text(
@@ -348,8 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onChanged: (value) {
               setState(() {
                 _selectedConsultationId = value;
-                // Find the selected consultation's status
-                final selectedConsultation = consultations.firstWhere(
+                final selectedConsultation = _filteredConsultations.firstWhere(
                   (consultation) => consultation['id'].toString() == value,
                 );
                 _selectedConsultationStatus = selectedConsultation['Status'];
@@ -392,7 +502,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Reusable Dialogs
 class ConfirmationDialog {
   static Future<bool> show(
     BuildContext context, {
@@ -418,14 +527,12 @@ class ConfirmationDialog {
             ),
             actions: [
               TextButton(
-                onPressed: () =>
-                    Navigator.pop(context, false), // Cancel returns false
+                onPressed: () => Navigator.pop(context, false),
                 child:
                     const Text('Cancel', style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton(
-                onPressed: () =>
-                    Navigator.pop(context, true), // Confirm returns true
+                onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal.shade800,
                   shape: RoundedRectangleBorder(
@@ -437,7 +544,7 @@ class ConfirmationDialog {
             ],
           ),
         ) ??
-        false; // Default to false if dismissed without selection
+        false;
   }
 }
 
